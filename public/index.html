@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Texas Hold’em – Multiplayer Lobby</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Texas Hold’em</h1>
+    <div class="lobby-id-badge" id="lobbyIdBadge" hidden>
+      Lobby-ID: <span id="lobbyIdText"></span>
+      <button id="copyLobbyBtn" class="btn small">Kopiera</button>
+    </div>
+  </header>
+
+  <!-- Auth/Create/Join -->
+  <section id="authView" class="card">
+    <div class="grid two">
+      <div>
+        <h2>Skapa lobby (Host)</h2>
+        <label>Visningsnamn</label>
+        <input id="hostName" placeholder="Ditt namn" />
+        <div class="grid two compact">
+          <div>
+            <label>Startpengar</label>
+            <input id="startChips" type="number" min="100" value="1000" />
+          </div>
+          <div>
+            <label>Antal rundor</label>
+            <input id="rounds" type="number" min="1" value="5" />
+          </div>
+          <div>
+            <label>Small blind</label>
+            <input id="smallBlind" type="number" min="1" value="5" />
+          </div>
+          <div>
+            <label>Big blind</label>
+            <input id="bigBlind" type="number" min="2" value="10" />
+          </div>
+        </div>
+        <button id="createLobbyBtn" class="btn primary">Skapa lobby</button>
+      </div>
+
+      <div>
+        <h2>Gå med i lobby</h2>
+        <label>Visningsnamn</label>
+        <input id="joinName" placeholder="Ditt namn" />
+        <label>Lobby-ID</label>
+        <input id="joinLobbyId" placeholder="t.ex. 7J3KD" />
+        <button id="joinLobbyBtn" class="btn">Gå med</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lobbyvy -->
+  <section id="lobbyView" class="card" hidden>
+    <div class="lobby-header">
+      <h2>Lobby</h2>
+      <div>
+        <span id="hostBadge" class="badge" hidden>Du är host</span>
+        <button id="startGameBtn" class="btn primary" hidden>Starta spel</button>
+        <button id="leaveLobbyBtn" class="btn danger outline">Lämna lobby</button>
+      </div>
+    </div>
+
+    <div class="grid two">
+      <div>
+        <h3>Spelare</h3>
+        <ul id="playerList" class="player-list"></ul>
+      </div>
+      <div>
+        <h3>Inställningar</h3>
+        <div id="settingsView" class="settings">
+          <div><strong>Startpengar:</strong> <span id="sStart"></span></div>
+          <div><strong>Rundor:</strong> <span id="sRounds"></span></div>
+          <div><strong>Small blind:</strong> <span id="sSB"></span></div>
+          <div><strong>Big blind:</strong> <span id="sBB"></span></div>
+        </div>
+        <div class="hint">Startknappen är synlig endast för hosten.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Spelvy -->
+  <section id="gameView" class="table" hidden>
+    <div class="table-top">
+      <div class="community">
+        <div id="communityCards" class="card-row"></div>
+        <div class="pot">
+          Pott: <span id="potValue">0</span>
+          <span class="phase" id="phaseText"></span>
+          <span class="round" id="roundText"></span>
+        </div>
+      </div>
+      <div class="players" id="playersArea"></div>
+    </div>
+
+    <!-- Åtgärdspanel -->
+    <div id="actionBar" class="action-bar" hidden>
+      <div class="your-hand">
+        Dina kort:
+        <div id="myHand" class="card-row"></div>
+      </div>
+      <div class="controls">
+        <button id="checkBtn" class="btn">Check</button>
+        <div class="betbox">
+          <input id="betAmount" type="number" min="1" value="10" />
+          <button id="betBtn" class="btn primary">Bet / Syna</button>
+        </div>
+        <button id="foldBtn" class="btn danger">Fold</button>
+      </div>
+      <div class="info">
+        <div>Aktuell bet: <span id="currentBetText">0</span></div>
+        <div>Dina chips: <span id="myChipsText">0</span></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button id="backToLobbyBtn" class="btn outline">Tillbaka till lobby</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>

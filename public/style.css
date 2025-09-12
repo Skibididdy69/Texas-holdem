@@ -9,6 +9,16 @@
   --greenfelt: radial-gradient(ellipse at center, #0b5d3b 0%, #064b2e 60%, #043a24 100%);
   --shadow: 0 10px 30px rgba(0,0,0,.35);
 }
+/* Extra säkerhet: göm reveal-overlay från start */
+#revealOverlay {
+  display: none !important;
+}
+
+/* När vi vill visa overlayen sätter vi hidden = false i JS — då tar vi bort display:none via en klass */
+.reveal-overlay.show {
+  display: grid !important; /* matcha layout: grid (centrerad) */
+}
+
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }

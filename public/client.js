@@ -1,31 +1,30 @@
 /**
  * client.js
- * Frontend-logik för lobby & spel.
- * - Hanterar Socket.io-anslutning
- * - Skapa / gå med i lobby
- * - Realtidsuppdatering av lobby & spel
- * - Syna-knapp (call), separat bet-input, fold & check
- * - Visar reveal-overlay på showdown (alla kort + vinnare)
+ * Frontend-klient för lobby & spel
+ * - Socket.io-anslutning
+ * - Skapa/gå med i lobby
+ * - Realtidsuppdatering: lobbyUpdate, gameUpdate, reveal, gameOver
+ * - Betting: check, call (syna), bet (input), fold
+ * - Reveal-overlay visas vid showdown; döljs efter serverns delay
  */
 
-/* ======= Setup socket ======= */
 const socket = io();
+
 let mySocketId = null;
 let me = null;
 let currentLobby = null;
-let revealData = null; // när server skickar 'reveal', lagras här temporärt
+let revealData = null;
 
 socket.on("connect", () => { mySocketId = socket.id; });
 
-/* ======= DOM-helpers ======= */
+/* ---------- DOM helpers ---------- */
 const $ = sel => document.querySelector(sel);
-const $$ = sel => Array.from(document.querySelectorAll(sel));
 const show = (el, flag) => { if (!el) return; el.hidden = !flag; };
 const text = (el, t) => { if (!el) return; el.textContent = t; };
 const html = (el, h) => { if (!el) return; el.innerHTML = h; };
-const fmtChips = n => Number(n || 0).toLocaleString("sv-SE");
+const fmt = n => Number(n || 0).toLocaleString("sv-SE");
 
-/* ======= UI element bind ======= */
+/* ---------- Auth: skapa / join ---------- */
 $("#createLobbyBtn").addEventListener("click", () => {
   const name = ($("#hostName").value || "Host").trim();
   const settings = {
@@ -64,13 +63,15 @@ $("#copyLobbyBtn").addEventListener("click", async () => {
   catch { toast("Kunde inte kopiera.", "error"); }
 });
 
+/* Starta spel (host) */
 $("#startGameBtn").addEventListener("click", () => socket.emit("startGame"));
 
+/* Back to lobby */
 $("#backToLobbyBtn").addEventListener("click", () => {
   show($("#gameView"), false); show($("#lobbyView"), true);
 });
 
-/* Action buttons */
+/* ---------- Action buttons ---------- */
 $("#checkBtn").addEventListener("click", () => socket.emit("playerAction", { type: "check" }));
 $("#callBtn").addEventListener("click", () => socket.emit("playerAction", { type: "call" }));
 $("#betBtn").addEventListener("click", () => {
@@ -79,30 +80,27 @@ $("#betBtn").addEventListener("click", () => {
 });
 $("#foldBtn").addEventListener("click", () => socket.emit("playerAction", { type: "fold" }));
 
-/* ======= Socket event listeners ======= */
+/* ---------- Socket listeners ---------- */
 socket.on("lobbyUpdate", (lobby) => {
   currentLobby = lobby;
   renderLobby(lobby);
 });
+
 socket.on("gameUpdate", (state) => {
   currentLobby = state;
   renderGame(state);
 });
-socket.on("errorMessage", (msg) => toast(msg, "error"));
 
-/* Reveal (server skickar alla kort + vinnare-info innan potten delas ut) */
 socket.on("reveal", (payload) => {
-  // payload: { players: [{socketId,name,chips,folded,hand}], community, pot, winners: [{socketId,name,rankDesc}] }
   revealData = payload;
-  renderGame(currentLobby); // rendera med revealData så alla kort visas
+  renderGame(currentLobby);
   showRevealOverlay(payload);
 });
 
-/* Game over */
 socket.on("gameOver", (state) => {
   currentLobby = state;
   renderGame(state);
-  // Visa slutmeddelande
+  // visa en kort overlay
   const alive = state.players.filter(p => p.chips > 0);
   if (alive.length === 1) {
     showOverlayMessage(`${alive[0].name} vann hela spelet!`);
@@ -111,7 +109,9 @@ socket.on("gameOver", (state) => {
   }
 });
 
-/* ======= Rendering: lobby ======= */
+socket.on("errorMessage", (msg) => toast(msg, "error"));
+
+/* ---------- Render lobby ---------- */
 function enterLobby(lobbyId) {
   show($("#authView"), false);
   show($("#lobbyView"), true);
@@ -121,87 +121,86 @@ function enterLobby(lobbyId) {
 
 function renderLobby(l) {
   if (!l) return;
-  text($("#sStart"), fmtChips(l.settings.startChips));
+  text($("#sStart"), fmt(l.settings.startChips));
   text($("#sRounds"), l.settings.rounds === 0 ? "Oändligt (0)" : l.settings.rounds);
-  text($("#sSB"), fmtChips(l.settings.smallBlind));
-  text($("#sBB"), fmtChips(l.settings.bigBlind));
+  text($("#sSB"), fmt(l.settings.smallBlind));
+  text($("#sBB"), fmt(l.settings.bigBlind));
 
-  const htmlPlayers = l.players.map(p => `
+  const items = l.players.map(p => `
     <li class="player">
-      <div class="avatar">${(p.name[0]||"?").toUpperCase()}</div>
+      <div class="avatar">${p.name[0]?.toUpperCase() || "?"}</div>
       <div class="info">
         <div class="name">${p.name} ${p.socketId === l.dealerSocketId ? '<span class="tag">D</span>' : ''}</div>
-        <div class="chips">${fmtChips(p.chips)} chips</div>
+        <div class="chips">${fmt(p.chips)} chips</div>
       </div>
       ${p.isHost ? '<div class="badge">Host</div>' : ''}
     </li>
   `).join("");
-  html($("#playerList"), htmlPlayers);
+  html($("#playerList"), items);
 
   const isMeHost = l.players.find(p => p.socketId === mySocketId)?.isHost;
   show($("#hostBadge"), !!isMeHost);
   show($("#startGameBtn"), !!isMeHost && l.status === "lobby" && l.players.length >= 2);
 
+  // Om spelet redan startat — visa gameView
   if (l.status === "playing" || l.status === "finished") {
     show($("#lobbyView"), false);
     show($("#gameView"), true);
   }
 }
 
-/* ======= Rendering: game ======= */
+/* ---------- Render game ---------- */
 function renderGame(state) {
   if (!state) return;
   show($("#gameView"), true);
   show($("#lobbyView"), false);
 
-  // Community cards: från revealData om den finns (visar alltid community)
+  // Community cards — använd revealData om present (visar alltid community)
   const community = revealData?.community ?? state.community ?? [];
   renderCards($("#communityCards"), community);
-
-  text($("#potValue"), fmtChips(state.pot));
+  text($("#potValue"), fmt(state.pot));
   text($("#phaseText"), state.phase ? `– ${state.phase.toUpperCase()}` : "");
   text($("#roundText"), `Runda ${state.roundNumber + 1} / ${state.settings.rounds === 0 ? "∞" : state.settings.rounds}`);
 
-  // Rendera spelare: om revealData finns, använd revealData.players (alla kort) för att visa faktiska händer
+  // Players: om revealData finns, visa revealData.players (alla kort), annars serverns state.players (med dolda kort för andra spelare)
   const playersToRender = revealData ? revealData.players : state.players;
   const pHtml = playersToRender.map(p => {
-    const original = (state.players.find(sp => sp.socketId === p.socketId) || {});
-    const isTurn = state.currentPlayerSocketId === p.socketId ? "turn" : "";
+    const original = state.players.find(sp => sp.socketId === p.socketId) || {};
+    const turn = state.currentPlayerSocketId === p.socketId ? "turn" : "";
     const folded = p.folded ? "folded" : "";
-    const blindTags =
+    const blind =
       (state.smallBlindSocketId === p.socketId ? '<span class="tag">SB</span>' : '') +
       (state.bigBlindSocketId === p.socketId ? '<span class="tag">BB</span>' : '') +
       (state.dealerSocketId === p.socketId ? '<span class="tag">D</span>' : '');
-    const handHtml = renderCardsHtml(p.hand || [], true); // när revealData finns visar vi alla; annars backend styr dolda kort
     return `
-      <div class="seat ${isTurn} ${folded}">
+      <div class="seat ${turn} ${folded}">
         <div class="seat-header">
-          <div class="name">${p.name} ${blindTags}</div>
-          <div class="chips">${fmtChips(original.chips ?? p.chips)} chips</div>
+          <div class="name">${p.name} ${blind}</div>
+          <div class="chips">${fmt(original.chips ?? p.chips)} chips</div>
         </div>
-        <div class="hand small">${handHtml}</div>
-        <div class="bet">Bet: ${fmtChips(original.bet ?? 0)}</div>
+        <div class="hand small">${renderCardsHtml(p.hand || [], true)}</div>
+        <div class="bet">Bet: ${fmt(original.bet ?? 0)}</div>
       </div>
     `;
   }).join("");
   html($("#playersArea"), pHtml);
 
-  // Min hand (visa riktiga kort om revealData finns, annars server skickar egna kort i state.players)
-  const meP = (revealData ? revealData.players.find(p => p.socketId === mySocketId) : state.players.find(p => p.socketId === mySocketId));
-  if (meP) {
-    renderCards($("#myHand"), meP.hand || []);
-    text($("#myChipsText"), fmtChips(meP.chips ?? 0));
+  // Min hand (välj från revealData om present, annars servern skickar egna kort i state.players)
+  const myP = (revealData ? revealData.players.find(p => p.socketId === mySocketId) : state.players.find(p => p.socketId === mySocketId));
+  if (myP) {
+    renderCards($("#myHand"), myP.hand || []);
+    text($("#myChipsText"), fmt(myP.chips ?? 0));
   }
 
-  // Actionbar: synlig enbart om det är min tur och spelet pågår
-  const isMyTurn = state.currentPlayerSocketId === mySocketId && state.status === "playing" && state.phase !== "showdown";
-  show($("#actionBar"), !!isMyTurn);
+  // Actionbar visas bara om det är min tur och spelet pågår
+  const myTurn = state.currentPlayerSocketId === mySocketId && state.status === "playing" && state.phase !== "showdown";
+  show($("#actionBar"), !!myTurn);
 
-  // Show/hide call vs check:
-  const myStatePlayer = state.players.find(p => p.socketId === mySocketId) || { bet: 0, chips: 0 };
-  const minCall = Math.max(0, (state.currentBet || 0) - (myStatePlayer.bet || 0));
+  // Hantera call vs check UI
+  const myState = state.players.find(p => p.socketId === mySocketId) || { bet: 0, chips: 0 };
+  const minCall = Math.max(0, (state.currentBet || 0) - (myState.bet || 0));
   if (minCall > 0) {
-    text($("#callBtn"), `Syna ${fmtChips(minCall)}`);
+    text($("#callBtn"), `Syna ${fmt(minCall)}`);
     show($("#callBtn"), true);
     show($("#checkBtn"), false);
   } else {
@@ -209,13 +208,13 @@ function renderGame(state) {
     show($("#checkBtn"), true);
   }
 
-  // Prefill bet amount: föreslå minst big blind eller minCall beroende
+  // Prefill betAmount som minOpen eller minCall beroende
   const minOpen = state.settings.bigBlind || 10;
   $("#betAmount").value = Math.max(minOpen, minCall || 0);
-  text($("#currentBetText"), fmtChips(state.currentBet || 0));
+  text($("#currentBetText"), fmt(state.currentBet || 0));
 }
 
-/* ======= Renderkort-helpers ======= */
+/* ---------- Kort-rendering ---------- */
 function renderCards(container, cards) { if (!container) return; container.innerHTML = renderCardsHtml(cards); }
 function renderCardsHtml(cards, allowHidden = false) {
   if (!cards || !cards.length) return "";
@@ -231,54 +230,51 @@ function renderCardsHtml(cards, allowHidden = false) {
 }
 function suitClass(s) { return s === "♥" ? "h" : s === "♦" ? "d" : s === "♣" ? "c" : "s"; }
 
-/* ======= Reveal-overlay ======= */
+/* ---------- Reveal-overlay ---------- */
 function showRevealOverlay(payload) {
   const overlay = $("#revealOverlay");
   const title = $("#revealTitle");
   const content = $("#revealContent");
   show(overlay, true);
 
-  // Bygg innehåll: visa vinnare först
   const winners = payload.winners || [];
-  let htmlParts = "";
+  title.textContent = winners.length ? (winners.map(w => w.name).join(", ") + " vann!") : "Vinnare";
 
+  // Bygg content: vinnare + praktisk info + alla spelarhänder
+  let htmlParts = "";
   if (winners.length) {
     htmlParts += `<div class="winners">`;
-    htmlParts += `<h3>Vinnare:</h3>`;
     winners.forEach(w => {
-      const rankDesc = w.rankDesc ? ` (${w.rankDesc})` : "";
-      htmlParts += `<div class="winner-line"><strong>${w.name}</strong>${rankDesc}</div>`;
+      htmlParts += `<div class="winner-line"><strong>${w.name}</strong>${w.rankDesc ? ` — ${w.rankDesc}` : ""}</div>`;
     });
     htmlParts += `</div>`;
   }
 
-  // Lista alla spelare med deras kort
   htmlParts += `<div class="reveal-players">`;
   payload.players.forEach(p => {
     htmlParts += `<div class="reveal-player">
-      <div class="reveal-name">${p.name} — ${fmtChips(p.chips)} chips ${p.folded ? "(folded)" : ""}</div>
+      <div class="reveal-name">${p.name} — ${fmt(p.chips)} chips ${p.folded ? "(folded)" : ""}</div>
       <div class="reveal-hand">${renderCardsHtml(p.hand || [], true)}</div>
     </div>`;
   });
   htmlParts += `</div>`;
 
   html(content, htmlParts);
-
-  // Overlay döljs automatiskt när servern skickar nästa state (efter REVEAL_DELAY_MS)
+  // Overlay döljs av servern när nästa hand börjar; men vi sätter en fallback-hide efter REVEAL_DELAY_MS+100
   setTimeout(() => {
     show(overlay, false);
     revealData = null;
-  }, 6100);
+  }, 6500);
 }
 
 function showOverlayMessage(msg) {
   const overlay = $("#revealOverlay");
   show(overlay, true);
   html($("#revealTitle"), msg);
-  html($("#revealContent"), "<div style='margin-top:1rem;color:#fff;'>Spelet är över.</div>");
+  html($("#revealContent"), `<div style="margin-top:1rem;color:#fff;">Spelet är över.</div>`);
 }
 
-/* ======= Toast (notiser) ======= */
+/* ---------- Toast ---------- */
 function toast(msg, type = "") {
   const t = $("#toast");
   t.className = `toast ${type}`;

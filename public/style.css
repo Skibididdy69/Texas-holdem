@@ -1,10 +1,10 @@
 /* 
  * style.css
  * Modern, responsiv design med "pokerbord"-känsla.
- * Fokus på tydlig layout, kortgrafik och knappar.
+ * Inkluderar styling för reveal-overlay och call/ bet-knappar.
  */
 
-/* Reset/grund */
+/* Variabler och reset */
 :root{
   --bg: #0b1020;
   --fg: #e8ecf1;
@@ -207,6 +207,21 @@ input:focus { border-color: var(--accent); }
 .toast.error { background: #3a1212; color: #ffd1d1; border-color: #5b1c1c; }
 .toast.success { background: #143a2a; color: #d9ffee; border-color: #1c5a44; }
 
+/* Reveal-overlay */
+.reveal-overlay {
+  position: fixed; inset: 0; display: grid; place-items: center; z-index: 100;
+  background: linear-gradient(rgba(4,8,15,0.6), rgba(4,8,15,0.6));
+}
+.reveal-card {
+  background: rgba(12,18,33,0.95); border-radius: 14px; padding: 1.2rem; width: min(920px, 94%);
+  box-shadow: 0 10px 30px rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,0.04);
+}
+.reveal-card h2 { margin-bottom: .6rem; }
+.reveal-players { display: grid; gap: .6rem; margin-top: .6rem; }
+.reveal-player { display:flex; align-items:center; gap:.6rem; padding: .4rem; border-radius: 10px; background: rgba(255,255,255,0.02); }
+.reveal-name { width: 180px; font-weight: 700; }
+.reveal-hand { display:flex; gap:.4rem; }
+
 /* Layout responsiv */
 @media (max-width: 880px) {
   .grid.two { grid-template-columns: 1fr; }
@@ -216,4 +231,5 @@ input:focus { border-color: var(--accent); }
 @media (max-width: 520px) {
   .players { grid-template-columns: 1fr; }
   .playing-card { width: 58px; height: 84px; }
+  .reveal-name { width: 120px; }
 }

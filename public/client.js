@@ -248,24 +248,22 @@ function enterLobby(lobbyId) {
   safeText($("#lobbyIdText"), lobbyId || "");
 }
 
-/**
- * renderLobby: uppdaterar spelare-lista och inställningar
- */
-function renderLobby(lobby) {
-  if (!lobby) return;
+// Ersätt din befintliga renderLobby med denna säkra implementation
+function renderLobby(l) {
+  if (!l) return;
 
   // Inställningar
-  safeText($("#sStart"), fmt(lobby.settings.startChips));
-  safeText($("#sRounds"), lobby.settings.rounds === 0 ? "Oändligt (0)" : lobby.settings.rounds);
-  safeText($("#sSB"), fmt(lobby.settings.smallBlind));
-  safeText($("#sBB"), fmt(lobby.settings.bigBlind));
+  safeText($("#sStart"), fmt(l.settings.startChips));
+  safeText($("#sRounds"), l.settings.rounds === 0 ? "Oändligt (0)" : l.settings.rounds);
+  safeText($("#sSB"), fmt(l.settings.smallBlind));
+  safeText($("#sBB"), fmt(l.settings.bigBlind));
 
   // Spelare-lista
-  const items = (lobby.players || []).map(p => `
+  const items = (l.players || []).map(p => `
     <li class="player">
       <div class="avatar">${(p.name || "?")[0]?.toUpperCase() || "?"}</div>
       <div class="info">
-        <div class="name">${escapeHtml(p.name)} ${p.socketId === lobby.dealerSocketId ? '<span class="tag">D</span>' : ''}</div>
+        <div class="name">${escapeHtml(p.name)} ${p.socketId === l.dealerSocketId ? '<span class="tag">D</span>' : ''}</div>
         <div class="chips">${fmt(p.chips)} chips</div>
       </div>
       ${p.isHost ? '<div class="badge">Host</div>' : ''}
@@ -273,17 +271,30 @@ function renderLobby(lobby) {
   `).join("");
   safeHtml($("#playerList"), items);
 
-  // Host UI: visa startknapp endast för host i lobby-läge
-  const iAmHost = (lobby.hostId === mySocketId);
-  safeShow($("#hostBadge"), !!iAmHost);
-  safeShow($("#startGameBtn"), !!iAmHost && lobby.status === "lobby" && (lobby.players?.length || 0) >= 2);
+  // Bestäm om denna klient är host — flera fallback:
+  // 1) om vi har 'me' (från ack) använd me.isHost
+  // 2) annars leta upp i lobby.players efter vår socketId och kolla p.isHost
+  // 3) (extra fallback) om lobby.hostId finns (framtida server-version) jämför den
+  const iAmHostViaMe = !!(me && me.isHost);
+  const iAmHostViaPlayers = !!((l.players || []).find(p => p.socketId === mySocketId && p.isHost));
+  const iAmHostViaHostId = !!(l.hostId && mySocketId && l.hostId === mySocketId);
+  const iAmHost = iAmHostViaMe || iAmHostViaPlayers || iAmHostViaHostId;
 
-  // Om spelet redan är igång, visa gameView
-  if (lobby.status === "playing" || lobby.status === "finished") {
+  // Visa host-badge för den som är host
+  safeShow($("#hostBadge"), !!iAmHost);
+  // Visa startknappen endast om:
+  // - klienten är host (en av ovan metoder)
+  // - lobbyn fortfarande är i 'lobby' (inte 'playing')
+  // - minst 2 spelare finns
+  safeShow($("#startGameBtn"), !!(iAmHost && l.status === "lobby" && (l.players?.length || 0) >= 2));
+
+  // Om spelet redan är igång — visa gameView
+  if (l.status === "playing" || l.status === "finished") {
     safeShow($("#lobbyView"), false);
     safeShow($("#gameView"), true);
   }
 }
+
 
 /* ==========================
    Rendering: Game

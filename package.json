@@ -1,7 +1,7 @@
 {
-  "name": "texas-holdem-lobby",
-  "version": "1.0.0",
-  "description": "Multiplayer Texas Hold'em poker-lobby med Express, Socket.io och Render-deploy.",
+  "name": "Poker av Fabbe Åvall",
+  "version": "1.1.0",
+  "description": "Multiplayer Texas Hold'em lobby med Express och Socket.io (Render-ready).",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,14 +17,5 @@
   "devDependencies": {
     "nodemon": "^3.1.0"
   },
-  "keywords": [
-    "poker",
-    "texas-holdem",
-    "socket.io",
-    "express",
-    "lobby",
-    "render"
-  ],
-  "author": "Your Name",
   "license": "MIT"
 }

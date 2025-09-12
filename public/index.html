@@ -15,8 +15,10 @@
     </div>
   </header>
 
-  <!-- Auth/Create/Join -->
-  <section id="authView" class="card">
+  <!-- ========================================= -->
+  <!-- AUTH / CREATE / JOIN VIEW                 -->
+  <!-- ========================================= -->
+  <main id="authView" class="card">
     <div class="grid two">
       <div>
         <h2>Skapa lobby (Host)</h2>
@@ -52,9 +54,11 @@
         <button id="joinLobbyBtn" class="btn">Gå med</button>
       </div>
     </div>
-  </section>
+  </main>
 
-  <!-- Lobbyvy -->
+  <!-- ========================================= -->
+  <!-- LOBBY VIEW                                -->
+  <!-- ========================================= -->
   <section id="lobbyView" class="card" hidden>
     <div class="lobby-header">
       <h2>Lobby</h2>
@@ -78,12 +82,14 @@
           <div><strong>Small blind:</strong> <span id="sSB"></span></div>
           <div><strong>Big blind:</strong> <span id="sBB"></span></div>
         </div>
-        <div class="hint">Startknappen är synlig endast för hosten. Ange 0 i "Rundor" för oändligt spel tills någon vinner alla chips.</div>
+        <div class="hint">Startknappen är synlig endast för hosten. Ange 0 för oändligt spel tills en spelare äger alla chips.</div>
       </div>
     </div>
   </section>
 
-  <!-- Spelvy -->
+  <!-- ========================================= -->
+  <!-- GAME VIEW                                 -->
+  <!-- ========================================= -->
   <section id="gameView" class="table" hidden>
     <div class="table-top">
       <div class="community">
@@ -126,7 +132,7 @@
   <!-- Reveal-overlay (visas i showdown) -->
   <div id="revealOverlay" class="reveal-overlay" hidden>
     <div class="reveal-card">
-      <h2 id="revealTitle">Vinnare</h2>
+      <h2 id="revealTitle"></h2>
       <div id="revealContent"></div>
       <div class="reveal-foot">Nästa hand startar automatiskt...</div>
     </div>
@@ -138,4 +144,3 @@
   <script src="client.js"></script>
 </body>
 </html>
-
